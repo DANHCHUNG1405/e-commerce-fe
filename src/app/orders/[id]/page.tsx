@@ -1,2 +1,5 @@
 import { OrderView } from "@/features/account/components/orders";
-export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) { const { id } = await params; return <OrderView id={id}/>; }
+export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <OrderView id={id} />;
+}

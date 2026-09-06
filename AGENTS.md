@@ -12,6 +12,8 @@ Run these from the repository root:
 npm run dev        # Start the local development server
 npm run typecheck  # Validate TypeScript without emitting files
 npm run lint       # Run ESLint
+npm run format     # Format source and configuration with Prettier
+npm run format:check # Check formatting without changing files
 npm run build      # Create and validate a production build
 ```
 
@@ -51,3 +53,4 @@ Use the `@/` import alias for code under `src`.
 - Do not commit `.env.local`, credentials, API keys, or other secrets. Update `.env.example` when adding a required public environment variable.
 - Preserve unrelated working-tree changes.
 - Add dependencies only when the value is clear; reuse the existing stack first.
+- Use the project Prettier configuration; run `npm run format` after editing and `npm run format:check` before handoff. Generated files, lockfiles, and environment files are excluded.
