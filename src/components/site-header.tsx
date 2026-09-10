@@ -36,6 +36,7 @@ export function SiteHeader() {
   const [signingOut, setSigningOut] = useState(false);
   const [search, setSearch] = useState("");
   const { user, tokens, clearSession } = useSessionStore();
+  const roles = useSessionStore((s) => s.roles);
   const cart = useQuery({ queryKey: ["cart", user?.id], queryFn: cartApi.list, enabled: !!user });
   const count = cart.data?.reduce((total, item) => total + item.Quantity, 0) ?? 0;
   const signOut = async () => {
@@ -70,6 +71,8 @@ export function SiteHeader() {
               <Link href="/wishlist">Yêu thích</Link>
               {user ? (
                 <>
+                  {roles.includes("admin") && <Link href="/admin">Quản trị</Link>}
+                  {roles.includes("seller_admin") && <Link href="/seller">Kênh người bán</Link>}
                   <Link href="/account">{user.fullName || user.email}</Link>
                   <button disabled={signingOut} onClick={signOut} aria-label="Đăng xuất">
                     <LogOut size={14} />
@@ -168,6 +171,16 @@ export function SiteHeader() {
             ) : (
               <Link href="/login" className="ml-auto shrink-0 py-2">
                 Đăng nhập
+              </Link>
+            )}
+            {user && roles.includes("admin") && (
+              <Link href="/admin" className="shrink-0 py-2">
+                Quản trị
+              </Link>
+            )}
+            {user && roles.includes("seller_admin") && (
+              <Link href="/seller" className="shrink-0 py-2">
+                Người bán
               </Link>
             )}
           </nav>

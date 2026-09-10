@@ -1,4 +1,4 @@
-import { ManageVouchers } from "@/features/vouchers/components/manage-vouchers";
+import { redirect } from "next/navigation";
 export default function ManageVouchersPage() {
-  return <ManageVouchers />;
+  redirect("/admin/vouchers");
 }

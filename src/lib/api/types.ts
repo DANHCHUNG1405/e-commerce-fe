@@ -1,5 +1,6 @@
 export type UUID = string;
 export type ISODate = string;
+export type AppRole = "admin" | "seller_admin" | "customer";
 export interface Envelope<T> {
   statusCode: number;
   error: boolean;
