@@ -1,4 +1,4 @@
-import { AdminSellers } from "@/features/management/components/management-ui";
+import { AdminSellers } from "@/components/feature/management";
 export default function AdminSellersPage() {
   return <AdminSellers />;
 }

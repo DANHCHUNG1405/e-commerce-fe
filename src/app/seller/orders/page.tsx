@@ -1,4 +1,4 @@
-import { SellerOrders } from "@/features/management/components/management-ui";
+import { SellerOrders } from "@/components/feature/management";
 export default function SellerOrdersPage() {
   return <SellerOrders />;
 }

@@ -1,4 +1,4 @@
-import { AdminCategories } from "@/features/management/components/management-ui";
+import { AdminCategories } from "@/components/feature/management";
 export default function AdminCategoriesPage() {
   return <AdminCategories />;
 }

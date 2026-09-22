@@ -1,4 +1,4 @@
-import { SellerDashboard } from "@/features/management/components/management-ui";
+import { SellerDashboard } from "@/components/feature/management";
 export default function SellerPage() {
   return <SellerDashboard />;
 }

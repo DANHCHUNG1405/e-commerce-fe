@@ -1,4 +1,4 @@
-import { SellerVouchers } from "@/features/management/components/management-ui";
+import { SellerVouchers } from "@/components/feature/management";
 export default function SellerVouchersPage() {
   return <SellerVouchers />;
 }

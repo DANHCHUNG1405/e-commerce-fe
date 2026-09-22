@@ -1,4 +1,4 @@
-import { SellerProducts } from "@/features/management/components/management-ui";
+import { SellerProducts } from "@/components/feature/management";
 export default function SellerProductsPage() {
   return <SellerProducts />;
 }

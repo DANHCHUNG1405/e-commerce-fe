@@ -28,6 +28,10 @@ export function AuthForm({ registerMode = false }: { registerMode?: boolean }) {
     onSuccess: (result) => {
       cache.clear();
       useSessionStore.getState().setSession(result.user, result.tokens);
+      console.info("[Auth] Đăng nhập thành công", {
+        user: result.user.email,
+        roles: useSessionStore.getState().roles,
+      });
       router.push("/products");
     },
   });

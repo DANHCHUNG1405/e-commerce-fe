@@ -1,4 +1,4 @@
-import { AdminReviews } from "@/features/management/components/management-ui";
+import { AdminReviews } from "@/components/feature/management";
 export default function AdminReviewsPage() {
   return <AdminReviews />;
 }
