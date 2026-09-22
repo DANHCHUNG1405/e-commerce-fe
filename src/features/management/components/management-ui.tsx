@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/features/admin/api/admin.api";
 import { sellerApi } from "@/features/seller/api/seller.api";
 import { catalogApi } from "@/features/catalog/api/catalog.api";
 import { vouchersApi } from "@/features/vouchers/api/vouchers.api";
 import { useSessionStore } from "@/features/auth/store/session.store";
+import { useAccountAccess } from "@/features/auth/hooks/use-account-access";
 import type { AppRole } from "@/lib/api/types";
 import { Button, Notice, Page } from "@/components/ui";
+import { Pagination } from "@/components/pagination";
+import { formatVnd } from "@/lib/format";
 
 const adminLinks = [
   ["/admin", "Tổng quan"],
@@ -18,6 +21,9 @@ const adminLinks = [
   ["/admin/sellers", "Người bán"],
   ["/admin/reviews", "Đánh giá"],
   ["/admin/vouchers", "Voucher sàn"],
+  ["/admin/drivers", "Tài xế"],
+  ["/admin/shipments", "Vận đơn"],
+  ["/admin/receipts", "Biên nhận"],
 ] as const;
 const sellerLinks = [
   ["/seller", "Tổng quan"],
@@ -25,11 +31,17 @@ const sellerLinks = [
   ["/seller/orders", "Đơn hàng"],
   ["/seller/inventory", "Tồn kho"],
   ["/seller/vouchers", "Voucher shop"],
+  ["/seller/profile", "Hồ sơ shop"],
+  ["/seller/catalog", "Danh sách sản phẩm"],
+  ["/seller/fulfillment", "Vận chuyển"],
+  ["/seller/inventory/history", "Lịch sử tồn kho"],
 ] as const;
 
 export function ManagementGuard({ role, children }: { role: AppRole; children: React.ReactNode }) {
   const router = useRouter();
-  const { user, roles } = useSessionStore();
+  const pathname = usePathname();
+  const user = useSessionStore((s) => s.user);
+  const access = useAccountAccess();
   useEffect(() => {
     if (!user) router.replace("/login");
   }, [router, user]);
@@ -39,7 +51,24 @@ export function ManagementGuard({ role, children }: { role: AppRole; children: R
         <Notice>Đang tải…</Notice>
       </Page>
     );
-  if (!roles.includes(role))
+  const checking = role === "admin" ? access.permissions.isPending : access.memberships.isPending;
+  const error = role === "admin" ? access.permissions.error : access.memberships.error;
+  if (checking)
+    return (
+      <Page title="Đang kiểm tra quyền shop">
+        <Notice>Đang tải…</Notice>
+      </Page>
+    );
+  if (error)
+    return (
+      <Page title="Không thể kiểm tra quyền">
+        <Notice error>{error.message}</Notice>
+      </Page>
+    );
+  if (
+    (role === "admin" && !access.isAdmin) ||
+    (role === "seller_admin" && !access.isSeller && pathname !== "/seller")
+  )
     return (
       <Page title="Không có quyền truy cập">
         <Notice error>Bạn không có quyền sử dụng khu vực này.</Notice>
@@ -100,6 +129,22 @@ function ErrorNotice({ error }: { error: unknown }) {
     <Notice error>{error instanceof Error ? error.message : "Thao tác thất bại"}</Notice>
   ) : null;
 }
+function SellerPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const access = useAccountAccess();
+  return (
+    <label className="block text-sm font-medium text-zinc-700">
+      Shop
+      <select className="mt-2" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Chọn shop</option>
+        {access.memberships.data?.map((shop) => (
+          <option key={shop.sellerId} value={shop.sellerId}>
+            {shop.sellerName} · {shop.role} · {shop.sellerStatus}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 function Shell({
   kind,
   title,
@@ -129,15 +174,40 @@ function Card({ href, title, text }: { href: string; title: string; text: string
 }
 
 export function AdminDashboard() {
+  const stats = useQuery({ queryKey: ["admin-dashboard"], queryFn: adminApi.dashboard });
   return (
     <Shell kind="admin" title="Quản trị hệ thống">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card href="/admin/categories" title="Danh mục" text="Tạo danh mục sản phẩm." />
         <Card href="/admin/sellers" title="Người bán" text="Duyệt hoặc thay đổi trạng thái shop." />
-        <Card href="/admin/reviews" title="Đánh giá" text="Xoá đánh giá vi phạm bằng UUID." />
+        <Card href="/admin/reviews" title="Đánh giá" text="Xem và ẩn đánh giá." />
         <Card href="/admin/vouchers" title="Voucher sàn" text="Tạo và bật/tắt voucher toàn sàn." />
+        <Card href="/admin/drivers" title="Tài xế" text="Duyệt hồ sơ tài xế." />
+        <Card href="/admin/shipments" title="Vận đơn" text="Gán tài xế và quyết toán COD." />
+        <Card href="/admin/receipts" title="Biên nhận" text="Theo dõi biên nhận SePay." />
       </div>
-      <Notice>Dashboard chưa hiển thị số liệu vì backend hiện chưa có API thống kê.</Notice>
+      {stats.isPending && <Notice>Đang tải số liệu…</Notice>}
+      <ErrorNotice error={stats.error} />
+      {stats.data && (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(
+            [
+              ["Tài khoản", stats.data.users],
+              ["Shop chờ duyệt", stats.data.pendingSellers],
+              ["Đơn hàng", stats.data.orders],
+              ["Đơn chờ xử lý", stats.data.pendingOrders],
+              ["Đơn đã giao", stats.data.deliveredOrders],
+              ["Doanh thu", formatVnd(stats.data.revenue)],
+              ["Thanh toán chờ xử lý", stats.data.pendingPayments],
+            ] as const
+          ).map(([label, value]) => (
+            <div className="rounded-xl bg-white p-5" key={label}>
+              <p className="text-sm text-zinc-500">{label}</p>
+              <strong className="mt-2 block text-xl">{value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
     </Shell>
   );
 }
@@ -172,46 +242,85 @@ export function AdminCategories() {
 }
 
 export function AdminSellers() {
-  const [id, setId] = useState("");
-  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "suspended">(
-    "approved",
+  const cache = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<"" | "pending" | "approved" | "rejected" | "suspended">(
+    "pending",
   );
-  const mutation = useMutation({ mutationFn: () => sellerApi.updateStatus(id, status) });
+  const list = useQuery({
+    queryKey: ["admin-sellers", page, filter],
+    queryFn: () => adminApi.sellers(page, filter || undefined),
+  });
+  const mutation = useMutation({
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "approved" | "rejected" | "suspended" | "pending";
+    }) => sellerApi.updateStatus(id, status),
+    onSuccess: () => {
+      cache.invalidateQueries({ queryKey: ["admin-sellers"] });
+      cache.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    },
+  });
   return (
     <Shell kind="admin" title="Quản lý người bán">
-      <form
-        className="mx-auto max-w-xl space-y-4 rounded-xl bg-white p-6"
-        onSubmit={(e) => {
-          e.preventDefault();
-          mutation.mutate();
-        }}
-      >
-        <Notice>Nhập seller UUID vì hiện chưa có API danh sách seller dành cho admin.</Notice>
-        <Field
-          label="Seller UUID"
-          value={id}
-          onChange={setId}
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+      <label className="block max-w-xs text-sm">
+        Trạng thái
+        <select
+          value={filter}
+          onChange={(e) => {
+            setFilter(e.target.value as typeof filter);
+            setPage(1);
+          }}
+        >
+          <option value="">Tất cả</option>
+          {["pending", "approved", "rejected", "suspended"].map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </label>
+      {list.isPending && <Notice>Đang tải shop…</Notice>}
+      <ErrorNotice error={list.error || mutation.error} />
+      {list.data?.length === 0 && <Notice>Không có shop ở trạng thái này.</Notice>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {list.data?.map((shop) => (
+          <article className="rounded-xl border border-zinc-200 bg-white p-5" key={shop.id}>
+            <h2 className="font-semibold">{shop.Name}</h2>
+            <p className="mt-1 text-sm">
+              {shop.Status} · {shop.Slug}
+            </p>
+            <p className="text-sm text-zinc-500">
+              Owner: {shop.ownerEmail ?? shop.ownerId ?? "Chưa xác định"}
+            </p>
+            <p className="break-all text-xs text-zinc-500">{shop.id}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(["approved", "rejected", "suspended", "pending"] as const).map((status) => (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  key={status}
+                  disabled={mutation.isPending || shop.Status === status}
+                  onClick={() => mutation.mutate({ id: shop.id, status })}
+                >
+                  {status}
+                </Button>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+      {list.data && (list.data.length > 0 || page > 1) && (
+        <Pagination
+          page={page}
+          hasNext={list.data.length === 20}
+          busy={list.isFetching}
+          onChange={setPage}
         />
-        <label className="block text-sm font-medium">
-          Trạng thái
-          <select
-            className="mt-2"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as typeof status)}
-          >
-            <option value="approved">Duyệt</option>
-            <option value="rejected">Từ chối</option>
-            <option value="suspended">Tạm khoá</option>
-            <option value="pending">Chờ duyệt</option>
-          </select>
-        </label>
-        <Button disabled={mutation.isPending || !id}>
-          {mutation.isPending ? "Đang cập nhật…" : "Cập nhật trạng thái"}
-        </Button>
-        <ErrorNotice error={mutation.error} />
-        {mutation.isSuccess && <Notice>Đã cập nhật trạng thái seller.</Notice>}
-      </form>
+      )}
     </Shell>
   );
 }
@@ -241,12 +350,19 @@ export function AdminReviews() {
 }
 
 export function SellerDashboard() {
+  const cache = useQueryClient();
+  const access = useAccountAccess();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const shops = useQuery({ queryKey: ["my-sellers"], queryFn: sellerApi.mine });
+  const [sellerId, setSellerId] = useState("");
+  const stats = useQuery({
+    queryKey: ["seller-dashboard", sellerId],
+    queryFn: () => sellerApi.dashboard(sellerId),
+    enabled: !!sellerId && ["owner", "manager"].includes(access.membership(sellerId)?.role ?? ""),
+  });
   const create = useMutation({
     mutationFn: () => sellerApi.create({ name, slug }),
-    onSuccess: () => shops.refetch(),
+    onSuccess: () => cache.invalidateQueries({ queryKey: ["seller-memberships"] }),
   });
   return (
     <Shell kind="seller" title="Kênh người bán">
@@ -255,6 +371,17 @@ export function SellerDashboard() {
         <Card href="/seller/orders" title="Đơn hàng" text="Theo dõi và cập nhật trạng thái đơn." />
         <Card href="/seller/inventory" title="Tồn kho" text="Điều chỉnh tồn kho theo variant." />
         <Card
+          href="/seller/profile"
+          title="Hồ sơ shop"
+          text="Địa chỉ lấy hàng, thành viên và thống kê."
+        />
+        <Card
+          href="/seller/catalog"
+          title="Danh sách sản phẩm"
+          text="Xem sản phẩm nháp và sửa variant."
+        />
+        <Card href="/seller/fulfillment" title="Vận chuyển" text="Xem đơn và tạo vận đơn nội bộ." />
+        <Card
           href="/seller/vouchers"
           title="Voucher shop"
           text="Tạo và quản lý voucher của shop."
@@ -262,20 +389,56 @@ export function SellerDashboard() {
       </div>
       <section className="mt-6 rounded-xl bg-white p-6">
         <h2 className="text-lg font-semibold">Shop của tôi</h2>
-        {shops.isLoading && <Notice>Đang tải shop…</Notice>}
+        {access.memberships.isPending && <Notice>Đang tải shop…</Notice>}
+        <ErrorNotice error={access.memberships.error} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {shops.data?.map((shop) => (
-            <article key={shop.id} className="rounded-lg border border-zinc-200 p-4">
-              <p className="font-semibold">{shop.Name}</p>
-              <p className="mt-1 text-sm text-zinc-500">{shop.id}</p>
+          {access.memberships.data?.map((shop) => (
+            <button
+              type="button"
+              onClick={() => setSellerId(shop.sellerId)}
+              key={shop.sellerId}
+              className="rounded-lg border border-zinc-200 p-4 text-left hover:border-orange-300"
+            >
+              <p className="font-semibold">{shop.sellerName}</p>
+              <p className="mt-1 text-sm text-zinc-500">{shop.sellerId}</p>
               <p className="mt-2 text-sm">
-                Trạng thái: <strong>{shop.Status}</strong>
+                Trạng thái: <strong>{shop.sellerStatus}</strong> · Vai trò:{" "}
+                <strong>{shop.role}</strong>
               </p>
-            </article>
+            </button>
           ))}
         </div>
-        {shops.data?.length === 0 && (
+        {access.memberships.data?.length === 0 && (
           <Notice>Bạn chưa có shop. Tạo shop bên dưới để gửi yêu cầu duyệt.</Notice>
+        )}
+        {sellerId && (
+          <div className="mt-5 rounded-xl bg-zinc-50 p-5">
+            <h3 className="font-semibold">Thống kê {access.membership(sellerId)?.sellerName}</h3>
+            {access.membership(sellerId)?.role === "staff" ? (
+              <Notice>Chỉ owner hoặc manager được xem thống kê.</Notice>
+            ) : stats.data ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                {(
+                  [
+                    ["Sản phẩm", stats.data.products],
+                    ["Đơn shop", stats.data.totalOrders],
+                    ["Chờ xử lý", stats.data.pendingOrders],
+                    ["Đã giao", stats.data.deliveredOrders],
+                    ["Doanh số", formatVnd(stats.data.deliveredSales)],
+                    ["Variant sắp hết", stats.data.lowStockVariants],
+                  ] as const
+                ).map(([label, value]) => (
+                  <p key={label} className="rounded bg-white p-3 text-sm">
+                    {label}: <strong>{value}</strong>
+                  </p>
+                ))}
+              </div>
+            ) : stats.isPending ? (
+              <Notice>Đang tải số liệu…</Notice>
+            ) : (
+              <ErrorNotice error={stats.error} />
+            )}
+          </div>
         )}
         <form
           className="mt-6 grid gap-4 border-t border-zinc-100 pt-6 sm:grid-cols-2"
@@ -290,7 +453,7 @@ export function SellerDashboard() {
             {create.isPending ? "Đang tạo…" : "Tạo shop"}
           </Button>
         </form>
-        <ErrorNotice error={shops.error || create.error} />
+        <ErrorNotice error={create.error} />
       </section>
     </Shell>
   );
@@ -323,7 +486,7 @@ export function SellerProducts() {
           }}
         >
           <h2 className="text-lg font-semibold">Tạo sản phẩm</h2>
-          <Field label="Seller UUID" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           <Field label="Tên" value={name} onChange={setName} />
           <Field label="Slug" value={slug} onChange={setSlug} />
           <Field label="Mô tả" value={description} onChange={setDescription} />
@@ -340,7 +503,7 @@ export function SellerProducts() {
         >
           <h2 className="text-lg font-semibold">Cập nhật sản phẩm</h2>
           <Field label="Product UUID" value={product} onChange={setProduct} />
-          <Field label="Seller UUID" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           <Field label="Tên" value={name} onChange={setName} />
           <Field label="Slug" value={slug} onChange={setSlug} />
           <Field label="Mô tả" value={description} onChange={setDescription} />
@@ -367,7 +530,7 @@ export function SellerProducts() {
           }}
         >
           <h2 className="text-lg font-semibold">Thêm variant</h2>
-          <Field label="Seller UUID" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           <Field label="Product UUID" value={product} onChange={setProduct} />
           <Field label="SKU" value={sku} onChange={setSku} />
           <Field label="Tên variant" value={variantName} onChange={setVariantName} />
@@ -407,7 +570,7 @@ export function SellerOrders() {
     <Shell kind="seller" title="Đơn hàng của shop">
       <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
         <section className="rounded-xl bg-white p-6">
-          <Field label="Seller UUID" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           {orders.isLoading && <Notice>Đang tải đơn hàng…</Notice>}
           {orders.data?.map((item) => (
             <article key={item.id} className="mt-4 rounded-lg border border-zinc-200 p-4">
@@ -475,7 +638,7 @@ export function SellerInventory() {
         }}
       >
         <Notice>Dùng số dương để nhập thêm, số âm để giảm tồn kho.</Notice>
-        <Field label="Seller UUID" value={seller} onChange={setSeller} />
+        <SellerPicker value={seller} onChange={setSeller} />
         <Field label="Variant UUID" value={variant} onChange={setVariant} />
         <Field
           label="Thay đổi số lượng"
@@ -496,6 +659,7 @@ export function SellerInventory() {
 
 export function SellerVouchers() {
   const [seller, setSeller] = useState("");
+  const [page, setPage] = useState(1);
   const [code, setCode] = useState("");
   const [value, setValue] = useState(0);
   const [minOrder, setMinOrder] = useState(0);
@@ -505,8 +669,8 @@ export function SellerVouchers() {
   const [voucherId, setVoucherId] = useState("");
   const [active, setActive] = useState(true);
   const list = useQuery({
-    queryKey: ["seller-vouchers", seller],
-    queryFn: () => vouchersApi.list(1, seller),
+    queryKey: ["seller-vouchers", seller, page],
+    queryFn: () => vouchersApi.manage(page, seller),
     enabled: seller.length > 0,
   });
   const create = useMutation({
@@ -540,7 +704,7 @@ export function SellerVouchers() {
             create.mutate();
           }}
         >
-          <Field label="Seller UUID" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           <Field label="Mã voucher" value={code} onChange={setCode} />
           <Field
             label="Giá trị giảm"
@@ -568,7 +732,7 @@ export function SellerVouchers() {
           <ErrorNotice error={create.error} />
         </form>
         <section className="rounded-xl bg-white p-6">
-          <Field label="Seller UUID để xem voucher" value={seller} onChange={setSeller} />
+          <SellerPicker value={seller} onChange={setSeller} />
           {list.data?.map((voucher) => (
             <article key={voucher.id} className="mt-3 rounded-lg border border-zinc-200 p-4">
               <p className="font-semibold">{voucher.Code}</p>
@@ -577,6 +741,14 @@ export function SellerVouchers() {
               </p>
             </article>
           ))}
+          {list.data && (list.data.length > 0 || page > 1) && (
+            <Pagination
+              page={page}
+              hasNext={list.data.length === 20}
+              busy={list.isFetching}
+              onChange={setPage}
+            />
+          )}
           <form
             className="mt-6 space-y-4 border-t pt-5"
             onSubmit={(e) => {

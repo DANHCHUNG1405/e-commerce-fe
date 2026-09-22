@@ -10,7 +10,7 @@ function readRoles(token: string): AppRole[] {
     };
     const values = payload.roles ?? (payload.role ? [payload.role] : []);
     return values.filter((role): role is AppRole =>
-      ["admin", "seller_admin", "customer"].includes(role),
+      ["admin", "seller_admin", "customer", "driver"].includes(role),
     );
   } catch {
     return [];

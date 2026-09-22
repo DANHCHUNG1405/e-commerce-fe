@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Package, Heart } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { catalogApi } from "../api/catalog.api";
+import { sellerApi } from "@/features/seller/api/seller.api";
 import { cartApi } from "@/features/cart/api/cart.api";
 import { accountApi } from "@/features/account/api/account.api";
 import { useSessionStore } from "@/features/auth/store/session.store";
@@ -19,6 +20,18 @@ export function ProductDetailView({ id }: { id: string }) {
   const reviews = useQuery({
     queryKey: ["reviews", id],
     queryFn: () => catalogApi.reviews(id, { limit: 20 }),
+  });
+  const metadata = useQuery({
+    queryKey: ["product-metadata", id],
+    queryFn: () => catalogApi.metadata(id),
+    retry: false,
+  });
+  const sellerId = detail.data?.product.SellerID;
+  const seller = useQuery({
+    queryKey: ["seller-public", sellerId],
+    queryFn: () => sellerApi.publicProfile(sellerId!),
+    enabled: !!sellerId,
+    retry: false,
   });
   const variant = detail.data?.variants.find((v) => v.id === variantId) ?? detail.data?.variants[0];
   const add = useMutation({
@@ -56,6 +69,11 @@ export function ProductDetailView({ id }: { id: string }) {
           )}
         </div>
         <div>
+          {seller.data && (
+            <p className="mb-3 text-sm text-zinc-600">
+              Bán bởi <strong>{seller.data.Name}</strong>
+            </p>
+          )}
           <ChatShopButton sellerId={product.SellerID} />
           <p className="mb-6 text-3xl font-bold">
             {variant ? formatVnd(variant.Price) : "Chưa có phiên bản bán"}
@@ -116,6 +134,21 @@ export function ProductDetailView({ id }: { id: string }) {
           {(add.error || wish.error) && <Notice error>{(add.error || wish.error)?.message}</Notice>}
         </div>
       </div>
+      {metadata.data && (
+        <section className="mt-10 rounded-xl border border-zinc-200 bg-white p-5">
+          <h2 className="text-xl font-bold">Thông số sản phẩm</h2>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+            {Object.entries(metadata.data.specifications ?? {}).map(([key, value]) => (
+              <div key={key} className="border-b pb-2 text-sm">
+                <dt className="font-medium">{key}</dt>
+                <dd className="text-zinc-600">
+                  {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
       <section className="mt-14 border-t border-zinc-200 pt-8">
         <h2 className="text-xl font-bold">Đánh giá gần đây</h2>
         {reviews.error && <Notice error>{reviews.error.message}</Notice>}

@@ -55,7 +55,7 @@ apiClient.interceptors.response.use(
     const config = error.config as RetryConfig | undefined;
     const path = config?.url ?? "";
     const publicRequest =
-      (path.startsWith("/auth/") && path !== "/auth/me") ||
+      /^\/auth\/(login|register|refresh|logout|forgot-password|reset-password)$/.test(path) ||
       ((config?.method ?? "get") === "get" &&
         (/^\/(products|categories|vouchers)(\/|$)/.test(path) ||
           /^\/sellers\/[^/]+\/vouchers$/.test(path)));

@@ -34,6 +34,11 @@ export const vouchersApi = {
       url: seller ? `/sellers/${seller}/vouchers` : "/vouchers",
       params: { page, limit: 20 },
     }),
+  manage: (page = 1, seller?: string) =>
+    request<Voucher[]>({
+      url: seller ? `/sellers/${seller}/vouchers/manage` : "/admin/vouchers",
+      params: { page, limit: 20 },
+    }),
   preview: (code: string, variantIds: string[], signal?: AbortSignal) =>
     request<VoucherPreview>({
       url: "/vouchers/preview",

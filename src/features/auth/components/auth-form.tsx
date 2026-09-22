@@ -28,10 +28,16 @@ export function AuthForm({ registerMode = false }: { registerMode?: boolean }) {
     onSuccess: (result) => {
       cache.clear();
       useSessionStore.getState().setSession(result.user, result.tokens);
-      console.info("[Auth] Đăng nhập thành công", {
-        user: result.user.email,
-        roles: useSessionStore.getState().roles,
-      });
+      void Promise.allSettled([
+        cache.fetchQuery({
+          queryKey: ["account-permissions", result.user.id],
+          queryFn: authApi.permissions,
+        }),
+        cache.fetchQuery({
+          queryKey: ["seller-memberships", result.user.id],
+          queryFn: authApi.memberships,
+        }),
+      ]);
       router.push("/products");
     },
   });
@@ -74,6 +80,13 @@ export function AuthForm({ registerMode = false }: { registerMode?: boolean }) {
             {registerMode ? "Đã có tài khoản? Đăng nhập" : "Chưa có tài khoản? Đăng ký"}
           </Link>
         </p>
+        {!registerMode && (
+          <p className="text-center text-sm">
+            <Link className="text-orange-600 underline" href="/forgot-password">
+              Quên mật khẩu?
+            </Link>
+          </p>
+        )}
       </form>
     </Page>
   );

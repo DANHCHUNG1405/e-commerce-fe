@@ -22,8 +22,7 @@ export const catalogApi = {
   products: (params: PageParams & { q?: string } = {}) =>
     request<Product[]>({ url: `/products${query(params)}` }),
   product: (id: UUID) => request<ProductDetail>({ url: `/products/${id}` }),
-  metadata: async (id: UUID) =>
-    (await request<{ data: Metadata }>({ url: `/products/${id}/metadata` })).data,
+  metadata: (id: UUID) => request<Metadata>({ url: `/products/${id}/metadata` }),
   reviews: (id: UUID, params: PageParams = {}) =>
     request<Review[]>({ url: `/products/${id}/reviews${query(params)}` }),
   createReview: (body: { orderItemId: UUID; rating: number; comment?: string }) =>

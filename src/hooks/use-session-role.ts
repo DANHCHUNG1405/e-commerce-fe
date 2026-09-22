@@ -1,14 +1,15 @@
 "use client";
 
-import { useSessionStore } from "@/features/auth/store/session.store";
+import { useAccountAccess } from "@/features/auth/hooks/use-account-access";
 import type { AppRole } from "@/lib/api/types";
 
 export function useSessionRole() {
-  const roles = useSessionStore((state) => state.roles);
+  const access = useAccountAccess();
+  const roles = access.permissions.data?.roles ?? [];
   return {
     roles,
-    isAdmin: roles.includes("admin"),
-    isSeller: roles.includes("seller_admin"),
-    hasRole: (role: AppRole) => roles.includes(role),
+    isAdmin: access.isAdmin,
+    isSeller: access.isSeller,
+    hasRole: (role: AppRole) => (role === "seller_admin" ? access.isSeller : roles.includes(role)),
   };
 }

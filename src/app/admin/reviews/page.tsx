@@ -1,4 +1,4 @@
-import { AdminReviews } from "@/components/feature/management";
+import { AdminOperations } from "@/features/management/components/operations";
 export default function AdminReviewsPage() {
-  return <AdminReviews />;
+  return <AdminOperations kind="reviews" />;
 }

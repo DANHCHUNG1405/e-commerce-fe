@@ -1,6 +1,17 @@
 export type UUID = string;
 export type ISODate = string;
-export type AppRole = "admin" | "seller_admin" | "customer";
+export type AppRole = "admin" | "customer" | "driver" | "seller_admin";
+export interface AccountPermissions {
+  roles: AppRole[];
+  permissions: string[];
+}
+export interface SellerMembership {
+  sellerId: UUID;
+  sellerName: string;
+  sellerSlug: string;
+  sellerStatus: string;
+  role: "owner" | "manager" | "staff";
+}
 export interface Envelope<T> {
   statusCode: number;
   error: boolean;
@@ -132,6 +143,121 @@ export interface Seller extends BaseEntity {
   Slug: string;
   CommissionRate: number;
   Status: "pending" | "approved" | "rejected" | "suspended";
+  Description?: string;
+  pickupAddress?: PickupAddress | null;
+}
+export interface AdminSeller extends Seller {
+  ownerId?: UUID;
+  ownerEmail?: string;
+  description?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+}
+export interface AdminStats {
+  users: number;
+  pendingSellers: number;
+  orders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  revenue: number;
+  pendingPayments: number;
+}
+export interface PickupAddress {
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+}
+export interface SellerMember extends BaseEntity {
+  SellerID: UUID;
+  UserID: UUID;
+  Role: "owner" | "manager" | "staff";
+}
+export interface SellerStats {
+  products: number;
+  activeProducts: number;
+  totalOrders: number;
+  pendingOrders: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  lowStockVariants: number;
+  deliveredSales: number;
+}
+export interface InventoryMovement extends BaseEntity {
+  VariantID: UUID;
+  Quantity: number;
+  Type: string;
+  ReferenceID: UUID | null;
+  Note: string;
+}
+export interface Shipment extends BaseEntity {
+  SellerOrderID: UUID;
+  driverId: UUID | null;
+  Carrier: string;
+  TrackingNumber: string;
+  Status:
+    | "pending"
+    | "assigned"
+    | "accepted"
+    | "picked_up"
+    | "delivering"
+    | "failed"
+    | "returned"
+    | "delivered";
+  addressSnapshot: Address | null;
+  pickupSnapshot: PickupAddress | null;
+  codAmount: number;
+  codCollected: boolean;
+  codSettled: boolean;
+}
+export interface ShipmentEvent extends BaseEntity {
+  ShipmentID: UUID;
+  Status: string;
+  Description: string;
+  actorId: UUID | null;
+  requestId: string | null;
+}
+export interface SellerOrderDetail {
+  sellerOrder: SellerOrder;
+  items: OrderItem[];
+  addressSnapshot: Address;
+  shipment: Shipment | null;
+  paymentMethod: string;
+  paymentStatus: string;
+}
+export interface DriverProfile extends BaseEntity {
+  UserID?: UUID;
+  userId?: UUID;
+  Phone?: string;
+  phone?: string;
+  VehiclePlate?: string;
+  vehiclePlate?: string;
+  Status?: string;
+  status?: string;
+}
+export interface PaymentWebhookReceipt extends BaseEntity {
+  Provider: string;
+  ProviderTransactionID: string;
+  PaymentID: UUID | null;
+  Code: string;
+  Bank: string;
+  AccountNumber: string;
+  Direction: string;
+  Status: string;
+  Amount: number;
+}
+export interface Notification {
+  id: UUID;
+  userId: UUID;
+  eventId: UUID;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown> | null;
+  createdAt: ISODate;
+  readAt?: ISODate | null;
 }
 export interface Metadata {
   productId: UUID;

@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Ticket,
   MessageCircle,
+  Bell,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +20,8 @@ import { useState } from "react";
 import { authApi } from "@/features/auth/api/auth.api";
 import { cartApi } from "@/features/cart/api/cart.api";
 import { useSessionStore } from "@/features/auth/store/session.store";
+import { notificationsApi } from "@/features/notifications/api/notifications.api";
+import { useAccountAccess } from "@/features/auth/hooks/use-account-access";
 
 const navigation = [
   { href: "/", label: "Trang chủ", icon: House },
@@ -36,8 +39,14 @@ export function SiteHeader() {
   const [signingOut, setSigningOut] = useState(false);
   const [search, setSearch] = useState("");
   const { user, tokens, clearSession } = useSessionStore();
-  const roles = useSessionStore((s) => s.roles);
+  const access = useAccountAccess();
   const cart = useQuery({ queryKey: ["cart", user?.id], queryFn: cartApi.list, enabled: !!user });
+  const unread = useQuery({
+    queryKey: ["notification-count", user?.id],
+    queryFn: notificationsApi.unreadCount,
+    enabled: !!user,
+    retry: false,
+  });
   const count = cart.data?.reduce((total, item) => total + item.Quantity, 0) ?? 0;
   const signOut = async () => {
     setSigningOut(true);
@@ -71,8 +80,13 @@ export function SiteHeader() {
               <Link href="/wishlist">Yêu thích</Link>
               {user ? (
                 <>
-                  {roles.includes("admin") && <Link href="/admin">Quản trị</Link>}
-                  {roles.includes("seller_admin") && <Link href="/seller">Kênh người bán</Link>}
+                  <Link href="/notifications" className="flex items-center gap-1">
+                    <Bell size={14} />
+                    Thông báo {unread.data?.count ? `(${unread.data.count})` : ""}
+                  </Link>
+                  <Link href="/driver">Tài xế</Link>
+                  {access.isAdmin && <Link href="/admin">Quản trị</Link>}
+                  <Link href="/seller">Kênh người bán</Link>
                   <Link href="/account">{user.fullName || user.email}</Link>
                   <button disabled={signingOut} onClick={signOut} aria-label="Đăng xuất">
                     <LogOut size={14} />
@@ -133,6 +147,20 @@ export function SiteHeader() {
                 </span>
               )}
             </Link>
+            {user && (
+              <Link
+                href="/notifications"
+                aria-label={`Thông báo, ${unread.data?.count ?? 0} chưa đọc`}
+                className="relative shrink-0 p-2"
+              >
+                <Bell size={25} />
+                {!!unread.data?.count && (
+                  <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-xs text-orange-700">
+                    {unread.data.count}
+                  </span>
+                )}
+              </Link>
+            )}
           </div>
           <div className="hidden gap-6 pb-3 text-xs md:flex md:pl-64">
             <Link href="/vouchers">Voucher</Link>
@@ -159,6 +187,11 @@ export function SiteHeader() {
               <MessageCircle size={14} />
               Tin nhắn
             </Link>
+            {user && (
+              <Link href="/driver" className="shrink-0 py-2">
+                Tài xế
+              </Link>
+            )}
             {user ? (
               <button
                 disabled={signingOut}
@@ -173,12 +206,12 @@ export function SiteHeader() {
                 Đăng nhập
               </Link>
             )}
-            {user && roles.includes("admin") && (
+            {user && access.isAdmin && (
               <Link href="/admin" className="shrink-0 py-2">
                 Quản trị
               </Link>
             )}
-            {user && roles.includes("seller_admin") && (
+            {user && (
               <Link href="/seller" className="shrink-0 py-2">
                 Người bán
               </Link>

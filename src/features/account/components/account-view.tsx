@@ -8,6 +8,7 @@ import { authApi } from "@/features/auth/api/auth.api";
 import { accountApi } from "../api/account.api";
 import { AddressForm } from "./addresses";
 import { Button, Notice, Page, LoginRequired } from "@/components/ui";
+import { ChangePasswordForm } from "@/features/auth/components/password-forms";
 const schema = z.object({
   fullName: z
     .string()
@@ -88,7 +89,10 @@ export function AccountView() {
             ))}
             {remove.error && <Notice error>{remove.error.message}</Notice>}
           </div>
-          <AddressForm />
+          <div className="space-y-8">
+            <AddressForm />
+            <ChangePasswordForm />
+          </div>
         </div>
       )}
     </Page>
